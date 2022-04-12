@@ -8,13 +8,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/application-research/estuary/autoretrieve"
 	"github.com/application-research/estuary/config"
 	rcmgr "github.com/application-research/estuary/node/modules/lp2p"
 	migratebs "github.com/application-research/estuary/util/migratebs"
 	"github.com/application-research/filclient/keystore"
 	autobatch "github.com/application-research/go-bs-autobatch"
 	lmdb "github.com/filecoin-project/go-bs-lmdb"
-	"github.com/filecoin-project/index-provider/engine"
 	badgerbs "github.com/filecoin-project/lotus/blockstore/badger"
 	"github.com/filecoin-project/lotus/chain/types"
 	"github.com/filecoin-project/lotus/chain/wallet"
@@ -91,12 +91,11 @@ type NodeInitializer interface {
 }
 
 type Node struct {
-	Dht           *dht.IpfsDHT
-	Provider      *batched.BatchProvidingSystem
-	FullRT        *fullrt.FullRT
-	FilDht        *dht.IpfsDHT
-	Host          host.Host
-	IndexProvider *engine.Engine
+	Dht      *dht.IpfsDHT
+	Provider *batched.BatchProvidingSystem
+	FullRT   *fullrt.FullRT
+	FilDht   *dht.IpfsDHT
+	Host     host.Host
 	// Set for gathering disk usage
 
 	StorageDir string
@@ -110,6 +109,9 @@ type Node struct {
 	Wallet *wallet.LocalWallet
 
 	Bwc *metrics.BandwidthCounter
+
+	ArEngine     *autoretrieve.AutoretrieveEngine
+	ArMhIterator *autoretrieve.SimpleEstuaryMhIterator
 
 	Config *config.Node
 }
