@@ -110,8 +110,7 @@ type Node struct {
 
 	Bwc *metrics.BandwidthCounter
 
-	ArEngine     *autoretrieve.AutoretrieveEngine
-	ArMhIterator *autoretrieve.SimpleEstuaryMhIterator
+	ArEngine *autoretrieve.AutoretrieveEngine
 
 	Config *config.Node
 }
