@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"sort"
 	"strconv"
 	"strings"
@@ -98,10 +99,21 @@ func (s *Server) doPinning(ctx context.Context, op *pinner.PinningOperation, cb 
 	ctx, span := s.tracer.Start(ctx, "doPinning")
 	defer span.End()
 
+	connectedToAtLeastOne := false
 	for _, pi := range op.Peers {
-		if err := s.Node.Host.Connect(ctx, pi); err != nil {
+		if err := s.Node.Host.Connect(ctx, pi); err != nil && s.Node.Host.ID() != pi.ID {
 			log.Warnf("failed to connect to origin node for pinning operation: %s", err)
+		} else {
+			//	Check if it's trying to connect to itself since we only want to check if the
+			//	the connection is between the host and the external/other peers.
+			connectedToAtLeastOne = true
 		}
+	}
+
+	//	If it can't connect to any legitimate provider peers, then we fail the entire operation.
+	if !connectedToAtLeastOne {
+		log.Errorf("unable to connect to any of the provider peers for pinning operation")
+		return nil
 	}
 
 	bserv := blockservice.New(s.Node.Blockstore, s.Node.Bitswap)
@@ -558,7 +570,7 @@ func (s *Server) handleListPins(e echo.Context, u *User) error {
 	if len(out) == 0 {
 		out = make([]*types.IpfsPinStatus, 0)
 	}
-	return e.JSON(200, map[string]interface{}{
+	return e.JSON(http.StatusOK, map[string]interface{}{
 		"count":   len(out),
 		"results": out,
 	})
@@ -650,7 +662,7 @@ func (s *Server) handleAddPin(e echo.Context, u *User) error {
 
 	if s.CM.contentAddingDisabled || u.StorageDisabled {
 		return &util.HttpError{
-			Code:    400,
+			Code:    http.StatusBadRequest,
 			Message: util.ERR_CONTENT_ADDING_DISABLED,
 		}
 	}
@@ -704,7 +716,9 @@ func (s *Server) handleAddPin(e echo.Context, u *User) error {
 		return err
 	}
 
-	return e.JSON(202, status)
+	status.Pin.Meta = pin.Meta
+
+	return e.JSON(http.StatusAccepted, status)
 }
 
 // handleGetPin  godoc
@@ -730,7 +744,7 @@ func (s *Server) handleGetPin(e echo.Context, u *User) error {
 		return err
 	}
 
-	return e.JSON(200, st)
+	return e.JSON(http.StatusOK, st)
 }
 
 // handleReplacePin godoc
@@ -743,7 +757,7 @@ func (s *Server) handleGetPin(e echo.Context, u *User) error {
 func (s *Server) handleReplacePin(e echo.Context, u *User) error {
 	if s.CM.contentAddingDisabled || u.StorageDisabled {
 		return &util.HttpError{
-			Code:    400,
+			Code:    http.StatusBadRequest,
 			Message: util.ERR_CONTENT_ADDING_DISABLED,
 		}
 	}
@@ -765,7 +779,7 @@ func (s *Server) handleReplacePin(e echo.Context, u *User) error {
 	}
 	if content.UserID != u.ID {
 		return &util.HttpError{
-			Code:    401,
+			Code:    http.StatusUnauthorized,
 			Message: util.ERR_NOT_AUTHORIZED,
 		}
 	}
@@ -790,7 +804,7 @@ func (s *Server) handleReplacePin(e echo.Context, u *User) error {
 		return err
 	}
 
-	return e.JSON(200, status)
+	return e.JSON(http.StatusAccepted, status)
 }
 
 // handleDeletePin godoc
@@ -824,7 +838,7 @@ func (s *Server) handleDeletePin(e echo.Context, u *User) error {
 		return err
 	}
 
-	return nil
+	return e.NoContent(http.StatusAccepted)
 }
 
 func (cm *ContentManager) UpdatePinStatus(handle string, cont uint, status string) {
