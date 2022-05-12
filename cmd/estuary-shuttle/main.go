@@ -1294,7 +1294,7 @@ func (s *Shuttle) handleAddCar(c echo.Context, u *User) error {
 // calculateCarSize works out the CAR size using the cids and block sizes
 // for the content stored in the DB
 func (s *Shuttle) calculateCarSize(data cid.Cid) (uint64, error) {
-	var objects []Object
+	var objects []util.Object
 	where := "id in (select object from objref where content = (select id from content where cid = ?))"
 	if err := s.DB.Find(&objects, where, data.Bytes()).Error; err != nil {
 		return 0, err
@@ -1304,9 +1304,9 @@ func (s *Shuttle) calculateCarSize(data cid.Cid) (uint64, error) {
 		return 0, fmt.Errorf("not found")
 	}
 
-	os := make([]util.Object, len(objects))
+	os := make([]util.CarObject, len(objects))
 	for i, o := range objects {
-		os[i] = util.Object{Size: uint64(o.Size), Cid: o.Cid.CID}
+		os[i] = util.CarObject{Size: uint64(o.Size), Cid: o.Cid.CID}
 	}
 
 	return util.CalculateCarSize(data, os)
